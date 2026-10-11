@@ -1,0 +1,44 @@
+# Blacksmith Configuration for Airworks
+# https://github.com/ventryx/blacksmith
+# 
+# This configuration file defines how Airworks should be built
+# for Windows and Linux using Blacksmith CI
+
+[package]
+name = "airworks"
+version = "1.0.0"
+product_name = "Airworks"
+description = "Build the Flow - Duct construction and airflow simulation game"
+authors = ["The Ventryx Company"]
+identifier = "com.ventryx.airworks"
+homepage = "https://github.com/Chronos64Bit/airworks"
+repository = "https://github.com/Chronos64Bit/airworks"
+license = "MIT"
+
+[build]
+platforms = ["windows", "linux"]
+architectures = ["x86_64"]
+
+before_build_command = "npm run build"
+dist_dir = "dist"
+
+[app]
+windows = [
+  { title = "Airworks - Build the Flow", width = 1280, height = 800, min_width = 800, min_height = 600 }
+]
+
+[dependencies]
+"tauri" = "2.4.0"
+"tauri-plugin-shell" = "2.4.0"
+
+[profiles.release]
+opt_level = "s"
+strip = true
+lto = true
+codegen_units = 1
+panic = "abort"
+
+[features]
+default = []
+windows = []
+linux = []
