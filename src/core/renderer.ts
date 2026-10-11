@@ -10,6 +10,7 @@ import {
   ComponentType,
   FlowResult,
   SimulationResult,
+  SimulationState,
   CanvasContext as CanvasContextType,
   getComponentConnections,
   getComponentSize,
@@ -115,13 +116,6 @@ interface Particle {
   color: string;
 }
 
-interface RenderOptions {
-  showFlow: boolean;
-  showGrid: boolean;
-  showConnections: boolean;
-  highlightInvalid: boolean;
-}
-
 // ============================================
 // COORDINATE TRANSFORMATIONS
 // ============================================
@@ -185,18 +179,6 @@ function getFlowColor(flowRate: number, maxFlowRate: number): string {
   return COLORS.flowParticleSlow;
 }
 
-function getConnectionColor(
-  component: Component,
-  isActive: boolean,
-  isInvalid: boolean,
-  isHighlighted: boolean
-): string {
-  if (isInvalid) return COLORS.connectionInvalid;
-  if (isHighlighted) return COLORS.connectionHighlight;
-  if (isActive) return COLORS.connectionActive;
-  return COMPONENT_DEFINITIONS[component.type]?.color || COLORS.connection;
-}
-
 // ============================================
 // GRID RENDERING
 // ============================================
@@ -243,10 +225,6 @@ function renderGrid(ctx: CanvasRenderingContext2D, canvasContext: CanvasContext)
 // COMPONENT RENDERING
 // ============================================
 
-function getComponentIcon(component: Component): string {
-  return COMPONENT_DEFINITIONS[component.type]?.icon || '';
-}
-
 function renderComponentConnection(
   ctx: CanvasRenderingContext2D,
   component: Component,
@@ -271,8 +249,7 @@ function renderComponent(
   component: Component,
   canvasContext: CanvasContext,
   isSelected: boolean = false,
-  isHovered: boolean = false,
-  isInvalid: boolean = false
+  isHovered: boolean = false
 ): void {
   const worldPos = {
     x: component.position.x * GRID_CELL_SIZE + GRID_CELL_SIZE / 2,
@@ -283,13 +260,11 @@ function renderComponent(
   const sizeX = size.x * GRID_CELL_SIZE;
   const sizeY = size.y * GRID_CELL_SIZE;
   
-  const color = isInvalid
-    ? COLORS.componentInvalid
-    : isSelected
-      ? COLORS.componentSelected
-      : isHovered
-        ? COLORS.componentHover
-        : getComponentColor(component);
+  const color = isSelected
+    ? COLORS.componentSelected
+    : isHovered
+      ? COLORS.componentHover
+      : getComponentColor(component);
   
   const lineWidth = COMPONENT_LINE_WIDTH / canvasContext.zoom;
   
@@ -319,7 +294,6 @@ function renderComponent(
       break;
       
     case 't_junction':
-      // Draw T shape
       ctx.fillRect(-sizeX / 2, -sizeY / 6, sizeX, sizeY / 3);
       ctx.fillRect(-sizeY / 6, -sizeY / 2, sizeY / 3, sizeY);
       ctx.strokeRect(-sizeX / 2, -sizeY / 6, sizeX, sizeY / 3);
@@ -327,7 +301,6 @@ function renderComponent(
       break;
       
     case 'cross':
-      // Draw + shape
       ctx.fillRect(-sizeX / 2, -sizeY / 6, sizeX, sizeY / 3);
       ctx.fillRect(-sizeY / 6, -sizeY / 2, sizeY / 3, sizeY);
       ctx.strokeRect(-sizeX / 2, -sizeY / 6, sizeX, sizeY / 3);
@@ -335,12 +308,10 @@ function renderComponent(
       break;
       
     case 'inlet':
-      // Draw fan-like shape for inlet
       ctx.beginPath();
       ctx.arc(0, 0, sizeX / 2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw fan blades
       for (let i = 0; i < 3; i++) {
         const angle = (i * Math.PI * 2) / 3;
         ctx.strokeStyle = COLORS.inlet;
@@ -353,12 +324,10 @@ function renderComponent(
       break;
       
     case 'outlet':
-      // Draw outlet shape
       ctx.beginPath();
       ctx.arc(0, 0, sizeX / 2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw exhaust lines
       for (let i = 0; i < 4; i++) {
         const angle = (i * Math.PI) / 2;
         ctx.strokeStyle = COLORS.outlet;
@@ -371,12 +340,10 @@ function renderComponent(
       break;
       
     case 'fan':
-      // Draw fan
       ctx.beginPath();
       ctx.arc(0, 0, sizeX / 2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw fan blades
       for (let i = 0; i < 4; i++) {
         const angle = (i * Math.PI) / 2 + Math.PI / 4;
         ctx.strokeStyle = COLORS.fan;
@@ -389,11 +356,9 @@ function renderComponent(
       break;
       
     case 'valve':
-      // Draw valve
       ctx.fillRect(-sizeX / 2, -sizeY / 6, sizeX, sizeY / 3);
       ctx.strokeRect(-sizeX / 2, -sizeY / 6, sizeX, sizeY / 3);
       
-      // Draw valve handle
       if (component.properties.open !== false) {
         ctx.fillStyle = COLORS.valve;
         ctx.beginPath();
@@ -409,7 +374,6 @@ function renderComponent(
   
   ctx.restore();
   
-  // Render connection points
   const connections = getComponentConnections(component);
   for (let i = 0; i < connections.length; i++) {
     renderComponentConnection(ctx, component, i, canvasContext);
@@ -425,9 +389,7 @@ function renderConnection(
   connection: Connection,
   components: Map<string, Component>,
   canvasContext: CanvasContext,
-  isActive: boolean = false,
-  isInvalid: boolean = false,
-  isHighlighted: boolean = false
+  isActive: boolean = false
 ): void {
   const fromComponent = components.get(connection.from.id);
   const toComponent = components.get(connection.to.id);
@@ -439,12 +401,7 @@ function renderConnection(
   const fromScreenPos = worldToScreen(fromWorldPos, canvasContext.zoom, canvasContext.panOffset);
   const toScreenPos = worldToScreen(toWorldPos, canvasContext.zoom, canvasContext.panOffset);
   
-  const color = getConnectionColor(
-    fromComponent,
-    isActive,
-    isInvalid,
-    isHighlighted
-  );
+  const color = isActive ? COLORS.connectionActive : COLORS.connection;
   const lineWidth = CONNECTION_LINE_WIDTH / canvasContext.zoom;
   
   ctx.save();
@@ -455,7 +412,6 @@ function renderConnection(
   ctx.beginPath();
   ctx.moveTo(fromScreenPos.x, fromScreenPos.y);
   
-  // Add a small curve for visual appeal
   const midX = (fromScreenPos.x + toScreenPos.x) / 2;
   const midY = (fromScreenPos.y + toScreenPos.y) / 2;
   const controlX = midX + (toScreenPos.y - fromScreenPos.y) * 0.2;
@@ -487,7 +443,6 @@ function renderFlowIndicators(
   for (const duct of simulationResult.ducts) {
     if (duct.flowRate === 0) continue;
     
-    // Find the edge position (approximate)
     const fromParts = duct.fromNodeId.split(':');
     const toParts = duct.toNodeId.split(':');
     
@@ -569,15 +524,14 @@ function renderSelectionIndicators(
 function renderPlacementPreview(
   ctx: CanvasRenderingContext2D,
   component: Component | null,
-  position: Vector2 | null,
-  canvasContext: CanvasContext,
-  isValid: boolean
+  isValid: boolean,
+  canvasContext: CanvasContext
 ): void {
-  if (!component || !position) return;
+  if (!component) return;
   
   const worldPos = {
-    x: position.x * GRID_CELL_SIZE + GRID_CELL_SIZE / 2,
-    y: position.y * GRID_CELL_SIZE + GRID_CELL_SIZE / 2,
+    x: component.position.x * GRID_CELL_SIZE + GRID_CELL_SIZE / 2,
+    y: component.position.y * GRID_CELL_SIZE + GRID_CELL_SIZE / 2,
   };
   const screenPos = worldToScreen(worldPos, canvasContext.zoom, canvasContext.panOffset);
   
@@ -598,48 +552,146 @@ function renderPlacementPreview(
 }
 
 // ============================================
-// PARTICLE SYSTEM
+// CANVAS RENDERER
 // ============================================
+
+class CanvasRenderer {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private particleSystem: ParticleSystem | null;
+  private lastFrameTime: number;
+  private animationFrameId: number | null;
+  
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.particleSystem = null;
+    this.lastFrameTime = 0;
+    this.animationFrameId = null;
+  }
+  
+  render(state: {
+    components: Map<string, Component>;
+    connections: Connection[];
+    simulationState: SimulationState;
+    simulationResult: SimulationResult | null;
+    selectedComponentId: string | null;
+    hoverComponentId: string | null;
+    placementComponent: Component | null;
+    placementValid: boolean;
+    zoom: number;
+    panOffset: Vector2;
+  }) {
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const canvasContext: CanvasContext = {
+      canvas: this.canvas,
+      ctx: this.ctx,
+      zoom: state.zoom,
+      panOffset: state.panOffset,
+      gridSize: { x: 20, y: 20 },
+    };
+    
+    // Clear canvas
+    this.ctx.fillStyle = COLORS.canvasBackground;
+    this.ctx.fillRect(0, 0, width, height);
+    
+    // Render grid
+    renderGrid(this.ctx, canvasContext);
+    
+    // Render connections (behind components)
+    for (const connection of state.connections) {
+      renderConnection(
+        this.ctx,
+        connection,
+        state.components,
+        canvasContext,
+        false
+      );
+    }
+    
+    // Render components
+    for (const [id, component] of state.components) {
+      const isSelected = state.selectedComponentId === id;
+      const isHovered = state.hoverComponentId === id;
+      
+      renderComponent(this.ctx, component, canvasContext, isSelected, isHovered);
+    }
+    
+    // Render flow indicators
+    if (state.simulationResult) {
+      renderFlowIndicators(
+        this.ctx,
+        state.simulationResult,
+        state.components,
+        canvasContext
+      );
+    }
+    
+    // Render selection indicators
+    renderSelectionIndicators(
+      this.ctx,
+      state.selectedComponentId,
+      state.components,
+      canvasContext
+    );
+    
+    // Render placement preview
+    if (state.placementComponent) {
+      renderPlacementPreview(
+        this.ctx,
+        state.placementComponent,
+        state.placementValid,
+        canvasContext
+      );
+    }
+  }
+  
+  resize(width: number, height: number) {
+    this.canvas.width = width * window.devicePixelRatio;
+    this.canvas.height = height * window.devicePixelRatio;
+    this.canvas.style.width = width + 'px';
+    this.canvas.style.height = height + 'px';
+    
+    // Scale context for high DPI
+    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  }
+  
+  startAnimation() {
+    if (this.animationFrameId) return;
+    
+    const animate = (timestamp: number) => {
+      this.animationFrameId = requestAnimationFrame(animate);
+    };
+    
+    this.animationFrameId = requestAnimationFrame(animate);
+  }
+  
+  stopAnimation() {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  }
+  
+  clearParticles() {
+    if (this.particleSystem) {
+      this.particleSystem.clear();
+    }
+  }
+}
 
 class ParticleSystem {
   private particles: Particle[] = [];
   private maxParticles: number;
-  private canvasContext: CanvasContext;
   
-  constructor(canvasContext: CanvasContext, maxParticles: number = 100) {
-    this.canvasContext = canvasContext;
+  constructor(maxParticles: number = 100) {
     this.maxParticles = maxParticles;
   }
   
-  update(
-    simulationResult: SimulationResult,
-    components: Map<string, Component>,
-    deltaTime: number
-  ): void {
-    if (!simulationResult || !simulationResult.ducts) return;
-    
-    // Remove old particles
+  update(deltaTime: number) {
     this.particles = this.particles.filter(p => p.life < p.maxLife);
     
-    // Add new particles based on flow
-    const maxFlowRate = Math.max(
-      ...simulationResult.ducts.map(d => d.flowRate),
-      1
-    );
-    
-    for (const duct of simulationResult.ducts) {
-      if (duct.flowRate === 0) continue;
-      
-      const particleCount = Math.floor(
-        (duct.flowRate / maxFlowRate) * 5 * deltaTime
-      );
-      
-      for (let i = 0; i < particleCount; i++) {
-        this.addParticleForDuct(duct, components);
-      }
-    }
-    
-    // Update existing particles
     for (const particle of this.particles) {
       particle.x += particle.vx * deltaTime * 60;
       particle.y += particle.vy * deltaTime * 60;
@@ -647,43 +699,17 @@ class ParticleSystem {
     }
   }
   
-  private addParticleForDuct(
-    duct: DuctFlowResult,
-    components: Map<string, Component>
-  ): void {
+  addParticle(particle: Particle) {
     if (this.particles.length >= this.maxParticles) return;
-    
-    const fromParts = duct.fromNodeId.split(':');
-    const toParts = duct.toNodeId.split(':');
-    
-    const fromComponent = components.get(fromParts[0]);
-    const toComponent = components.get(toParts[0]);
-    
-    if (!fromComponent || !toComponent) return;
-    
-    const fromWorldPos = getConnectionPosition(fromComponent, parseInt(fromParts[1]));
-    const toWorldPos = getConnectionPosition(toComponent, parseInt(toParts[1]));
-    
-    const particle: Particle = {
-      x: fromWorldPos.x,
-      y: fromWorldPos.y,
-      vx: (toWorldPos.x - fromWorldPos.x) * (duct.flowRate / Math.max(duct.flowRate, 1)),
-      vy: (toWorldPos.y - fromWorldPos.y) * (duct.flowRate / Math.max(duct.flowRate, 1)),
-      life: 0,
-      maxLife: 1000,
-      size: 2,
-      color: getFlowColor(duct.flowRate, Math.max(duct.flowRate, 1)),
-    };
-    
     this.particles.push(particle);
   }
   
-  render(ctx: CanvasRenderingContext2D): void {
+  render(ctx: CanvasRenderingContext2D, canvasContext: CanvasContext) {
     for (const particle of this.particles) {
       const screenPos = worldToScreen(
         { x: particle.x, y: particle.y },
-        this.canvasContext.zoom,
-        this.canvasContext.panOffset
+        canvasContext.zoom,
+        canvasContext.panOffset
       );
       
       ctx.save();
@@ -693,7 +719,7 @@ class ParticleSystem {
       ctx.arc(
         screenPos.x,
         screenPos.y,
-        particle.size / this.canvasContext.zoom,
+        particle.size / canvasContext.zoom,
         0,
         Math.PI * 2
       );
@@ -702,128 +728,8 @@ class ParticleSystem {
     }
   }
   
-  clear(): void {
+  clear() {
     this.particles = [];
-  }
-}
-
-// ============================================
-// CANVAS RENDERER
-// ============================================
-
-class CanvasRenderer {
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private particleSystem: ParticleSystem;
-  
-  constructor(canvas: HTMLCanvasElement, canvasContext: CanvasContext) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d')!;
-    this.particleSystem = new ParticleSystem(canvasContext);
-  }
-  
-  render(
-    components: Map<string, Component>,
-    connections: Connection[],
-    simulationResult: SimulationResult | null,
-    canvasContext: CanvasContext,
-    options: RenderOptions = {
-      showFlow: true,
-      showGrid: true,
-      showConnections: true,
-      highlightInvalid: true,
-    },
-    selectedComponentId: string | null = null,
-    hoveredComponentId: string | null = null,
-    placementComponent: Component | null = null,
-    placementPosition: Vector2 | null = null,
-    placementValid: boolean = true
-  ): void {
-    // Clear canvas
-    this.ctx.fillStyle = COLORS.canvasBackground;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // Update particle system
-    if (simulationResult && options.showFlow) {
-      this.particleSystem.update(simulationResult, components, 16);
-    } else {
-      this.particleSystem.clear();
-    }
-    
-    // Render grid
-    if (options.showGrid) {
-      renderGrid(this.ctx, canvasContext);
-    }
-    
-    // Render connections
-    if (options.showConnections) {
-      for (const connection of connections) {
-        const fromComponent = components.get(connection.from.id);
-        const toComponent = components.get(connection.to.id);
-        const isInvalid = options.highlightInvalid &&
-          (!fromComponent || !toComponent);
-        
-        renderConnection(
-          this.ctx,
-          connection,
-          components,
-          canvasContext,
-          true,
-          isInvalid,
-          false
-        );
-      }
-    }
-    
-    // Render components
-    for (const component of components.values()) {
-      const isSelected = component.id === selectedComponentId;
-      const isHovered = component.id === hoveredComponentId;
-      
-      renderComponent(
-        this.ctx,
-        component,
-        canvasContext,
-        isSelected,
-        isHovered,
-        false
-      );
-    }
-    
-    // Render placement preview
-    if (placementComponent && placementPosition) {
-      renderPlacementPreview(
-        this.ctx,
-        placementComponent,
-        placementPosition,
-        canvasContext,
-        placementValid
-      );
-    }
-    
-    // Render flow indicators
-    if (simulationResult && options.showFlow) {
-      renderFlowIndicators(this.ctx, simulationResult, components, canvasContext);
-    }
-    
-    // Render selection indicators
-    renderSelectionIndicators(
-      this.ctx,
-      selectedComponentId,
-      components,
-      canvasContext
-    );
-    
-    // Render particles
-    this.particleSystem.render(this.ctx);
-  }
-  
-  getCanvas(): HTMLCanvasElement {
-    return this.canvas;
-  }
-  
-  getContext(): CanvasRenderingContext2D {
-    return this.ctx;
   }
 }
 
@@ -846,6 +752,6 @@ export {
   GRID_CELL_SIZE,
   COLORS,
   type CanvasContext,
-  ParticleSystem,
   CanvasRenderer,
+  ParticleSystem,
 };
