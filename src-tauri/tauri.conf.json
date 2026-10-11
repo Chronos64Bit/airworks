@@ -1,0 +1,40 @@
+{
+  "package": {
+    "name": "airworks",
+    "version": "1.0.0",
+    "productName": "Airworks",
+    "authors": ["The Ventryx Company"],
+    "description": "Build the Flow - Duct construction and airflow simulation game",
+    "identifier": "com.ventryx.airworks",
+    "homepage": "https://github.com/Chronos64Bit/airworks",
+    "repository": "https://github.com/Chronos64Bit/airworks",
+    "license": "MIT"
+  },
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devPath": "http://localhost:5173",
+    "distDir": "../dist",
+    "withGlobalTauri": false
+  },
+  "app": {
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "Airworks - Build the Flow",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "maximizable": true,
+        "decorations": true,
+        "visible": false,
+        "transparency": "none"
+      }
+    ]
+  }
+}
