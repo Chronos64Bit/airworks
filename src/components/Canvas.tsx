@@ -39,14 +39,7 @@ export const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   // Initialize renderer
   useEffect(() => {
     if (canvasRef.current) {
-      const canvasContext = {
-        canvas: canvasRef.current,
-        ctx: canvasRef.current.getContext('2d')!,
-        zoom: state.zoom,
-        panOffset: state.panOffset,
-        gridSize: state.gridSize,
-      };
-      rendererRef.current = new CanvasRenderer(canvasRef.current, canvasContext);
+      rendererRef.current = new CanvasRenderer(canvasRef.current);
       rendererRef.current.resize(width, height);
     }
     
@@ -56,7 +49,7 @@ export const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         rendererRef.current = null;
       }
     };
-  }, [width, height, state.zoom, state.panOffset, state.gridSize]);
+  }, [width, height]);
   
   // Handle resize
   useEffect(() => {
@@ -71,13 +64,6 @@ export const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     
     const renderFrame = () => {
       if (rendererRef.current && canvasRef.current) {
-        const canvasContext = {
-          canvas: canvasRef.current,
-          ctx: canvasRef.current.getContext('2d')!,
-          zoom: state.zoom,
-          panOffset: state.panOffset,
-          gridSize: state.gridSize,
-        };
         rendererRef.current.render({
           components: state.components,
           connections: state.connections,
@@ -118,9 +104,7 @@ export const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       const worldPos = screenToWorld(
         screenPos,
         state.zoom,
-        state.panOffset,
-        width,
-        height
+        state.panOffset
       );
       const gridPos = snapToGrid(worldPos);
       
@@ -136,7 +120,7 @@ export const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     
     // Handle normal mouse down
     handleCanvasMouseDown(screenPos, width, height, state.zoom, state.panOffset);
-  }, [activeComponentType, width, height, state, getComponentAtPosition, placeComponent]);
+  }, [activeComponentType, width, height, state, getComponentAtPosition, placeComponent, handleCanvasMouseDown]);
   
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -152,9 +136,7 @@ export const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const worldPos = screenToWorld(
       screenPos,
       state.zoom,
-      state.panOffset,
-      width,
-      height
+      state.panOffset
     );
     const componentAtPos = getComponentAtPosition(worldPos);
     if (componentAtPos) {
@@ -177,7 +159,7 @@ export const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
     
     handleCanvasMouseMove(screenPos, width, height, state.zoom, state.panOffset);
-  }, [activeComponentType, width, height, state, getComponentAtPosition, getConnectionPointAtPosition, hoverComponent]);
+  }, [activeComponentType, width, height, state, getComponentAtPosition, getConnectionPointAtPosition, hoverComponent, handleCanvasMouseMove]);
   
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
